@@ -2,4 +2,4 @@
 This repository is opened to journal editors and reviewers, as well as any third parties. It contains data and analysis from a study which aims to broaden the understanding of which roles iconicity and systematicity have in categorization. 
 
 [Run the experiment](http://languageevolution.com/stekic/)
-To run the experiment locally, use a local server (like MAMP).
+To run the experiment locally, use a local server (like MAMP). 
