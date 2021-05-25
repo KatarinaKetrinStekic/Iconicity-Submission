@@ -1,0 +1,563 @@
+---
+title: "Data cleaning"
+author: "Katarina Stekic"
+date: "5/25/2021"
+output: html_document
+---
+#### Loading Libaries
+```{r Loading Libraries, include = FALSE}
+library(lme4)
+library(plyr)
+library(ggplot2)
+library(afex)
+library(emmeans)
+library(ggthemes)
+library(tidyverse)
+library(kableExtra)
+library(Hmisc)
+library(binom)
+library(Rmisc)
+library(magick)
+library(webshot)
+library(magrittr)
+library(multcomp)
+```
+
+
+# Reading in, Cleaning, and Preparing our data
+```{r 1- Loading and Combining Data, message = FALSE, warning = FALSE}
+
+#1 - Reading in the Raw Data
+## Our data is in two formats because of a change in jsPsych version halfway through our data collection - thus we read those separate data file types (distinguishable by file size) in here separately, then combine them into a single large data frame
+
+#1a - Specify our data folder for R
+setwd("D:/WIN/Documents/GitHub/Stekic-et-al/Data/50s/") 
+
+
+
+#1b - Take the names of every file in our directory
+files50  <- list.files(pattern = '\\.csv')
+
+#1c - Read each raw data file (called by name from read.csv) into a lists of lists (an indexed list)
+tables50 <- lapply(files50, read.csv, header = TRUE) 
+
+#1d- Bind the lists of lists into a data frame
+combined.df.50 <- do.call(rbind , tables50) 
+
+#1e- removes \ from all of the columns of the dataframe (These only appear in the .50 files from the jsPsych Update)
+combined.df.50[] <- lapply(combined.df.50, function(x) gsub("\\\\", "", x)) 
+
+#1f- Repeat steps a-d for second data folder (files output by original jsPsych before update)
+
+setwd("D:/WIN/Documents/GitHub/Stekic-et-al/Data/40s/") 
+files40  <- list.files(pattern = '\\.csv')
+tables40 <- lapply(files40, read.csv, header = TRUE)
+combined.df.40 <- do.call(rbind , tables40)
+
+#1g -Make the column names of our two data frames the same so that they can be bound into a single data object
+colnames(combined.df.50)<- c("rtD", "key_press", "trialtype2", "TrialIndex", "elapsed", "node_id", "viewhist", "responses", "Yoking", "RT", "RespKey", "RespCorr", "TrialType", "Image", "Label", "Location", "CorrectResponse", "Block", "BlockTrial", "Condition", "LabelType", "Subcondition", "TrialNum")
+
+
+colnames(combined.df.40)<- c("rtD", "key_press", "trialtype2", "TrialIndex", "elapsed", "node_id", "viewhist", "responses", "Yoking", "RT", "RespKey", "RespCorr", "TrialType", "Image", "Label", "Location", "CorrectResponse", "Block", "BlockTrial", "Condition", "LabelType", "Subcondition", "TrialNum")
+ 
+#1h - Binds our dataframes together 
+combined.df <- rbind(combined.df.50, combined.df.40)
+
+#1j- Substitute out some special characters
+combined.df[] <- lapply(combined.df, function(x) gsub("\\\\", "", x))
+combined.df[] <- lapply(combined.df, function(x) gsub("[{}]", "", x))
+combined.df[] <- lapply(combined.df, function(x) gsub("\"", "", x))
+
+```
+
+```{r 2- Cleaning Data and setting the data up for analysis}
+
+#2a- Add in a column with the biographical data (which is currently stored in a single value on the fourth line of each participant's file)
+biodata <- combined.df[seq(4, nrow(combined.df), 246),]
+biodata <- as.data.frame(biodata$responses)
+colnames(biodata) <- "biodata"
+
+biodata <- separate(biodata, col=biodata, into = c("Age", "Gender", "Specify"), sep = ",")
+
+biodata$Age <- sub("age:", "", biodata$Age)
+biodata$Gender <- sub("gender:", "", biodata$Gender)
+biodata$Specify <- sub("specify:", "", biodata$Specify)
+
+combined.df$Age <- rep(biodata$Age, each = 246)
+combined.df$Gender <- rep(biodata$Gender, each = 246)
+
+#2b- Add a unique participantID (actually the name of each file)
+files <- c(files40, files50)
+files <- sub(".csv", "", files)
+
+combined.df$ParticipantID <- rep(files, each= 246)
+
+
+#2c- Clean up our Data, Get rid of some useless columns, and re-sort the remaining columns into ones we will actually use
+CleanData <- subset(combined.df, select = c("ParticipantID", "Age", "Gender", "Condition", "Subcondition", "Yoking", "TrialNum", "TrialType", "Block", "BlockTrial", "Image", "Label", "Location", "CorrectResponse", "RespKey", "RespCorr", "RT"))
+
+#2d- Get rid of extra lines from the jsPsych output- leaving us with only our Trial data (everything else of use we've extracted and added as columns)
+CleanData <- subset(CleanData, TrialNum > 0)
+
+#2e- Set the data types of our various columns
+CleanData$ParticipantID <- as.factor(CleanData$ParticipantID)
+CleanData$Condition <- as.factor(CleanData$Condition)
+CleanData$Subcondition <- as.factor(CleanData$Subcondition)
+CleanData$Yoking <- as.factor(CleanData$Yoking)
+CleanData$TrialType <- as.factor(CleanData$TrialType)
+CleanData$Location <- as.factor(CleanData$Location)
+
+CleanData$TrialNum <- as.numeric(CleanData$TrialNum)
+CleanData$Block <- as.numeric(CleanData$Block)
+CleanData$BlockTrial <- as.numeric(CleanData$BlockTrial)
+CleanData$RespCorr <- as.numeric(CleanData$RespCorr)
+CleanData$RT <- as.numeric(CleanData$RT)
+
+```
+
+```{r 3- Cleaning Data and setting the data up for analysis}
+
+#3a- Clean up our Data, Get rid of some useless columns, and re-sort the remaining columns into ones we will actually use
+CleanData <- subset(combined.df, select = c("ParticipantID", "Age", "Gender", "Condition", "Subcondition", "Yoking", "TrialNum", "TrialType", "Block", "BlockTrial", "Image", "Label", "Location", "CorrectResponse", "RespKey", "RespCorr", "RT"))
+
+#3b- Get rid of extra lines from the jsPsych output- leaving us with only our Trial data (everything else of use we've extracted and added as columns)
+CleanData <- subset(CleanData, TrialNum > 0)
+
+#3c- Set the data types of our various columns
+CleanData$ParticipantID <- as.factor(CleanData$ParticipantID)
+CleanData$Condition <- as.factor(CleanData$Condition)
+CleanData$Subcondition <- as.factor(CleanData$Subcondition)
+CleanData$Yoking <- as.factor(CleanData$Yoking)
+CleanData$TrialType <- as.factor(CleanData$TrialType)
+CleanData$Location <- as.factor(CleanData$Location)
+
+CleanData$TrialNum <- as.numeric(CleanData$TrialNum)
+CleanData$Block <- as.numeric(CleanData$Block)
+CleanData$BlockTrial <- as.numeric(CleanData$BlockTrial)
+CleanData$RespCorr <- as.numeric(CleanData$RespCorr)
+CleanData$RT <- as.numeric(CleanData$RT)
+
+
+```
+
+# Data Exclusion
+
+We need to explore what data will be excluded from any further analysis off the top
+Roughly we are looking for any irregularities in Reaction Time or other response data that we think would unduly affect our data
+
+We remove data from participants for the following reasons:
+
+A) `r nrow(CleanData[is.na(CleanData$RespCorr),])` participant (ID # `r CleanData[is.na(CleanData$RespCorr),]$ParticipantID`) for which there was an 'NA' value in one of their response columns (we cannot be certain of the source of this 'NA' value so we remove their data entirely to be safe)
+
+B) `r ` participants (IDs = )
+
+
+```{r 4- Data Exclusion I, warning = FALSE, message = FALSE}
+
+#4A- Excluding any participants for which there are NA values recorded
+
+#i- Look for any 'NA' values in our Response Correctness column
+CleanData[is.na(CleanData$RespCorr),]
+
+#ii- Remove participant for whom we have this impossible value
+CleanData.RespCorr <- subset(CleanData, ParticipantID != "7gtriiTixvBaQ")
+
+#4B- Excluding any participants with impossible RT values
+## Preliminary inspection of data shows trials with negative response time values, which are obviously impossible
+RTNegative <- subset(CleanData.RespCorr, RT < 0)
+
+CleanData.RTNegCorr <- subset(CleanData.RespCorr, ParticipantID != "60CBPiTiO1gKw")
+CleanData.RTNegCorr <- subset(CleanData.RTNegCorr, ParticipantID != "k3LHwiTiOx7fx")
+
+# Verify that we have removed all negative values RT values from the data frame
+RTNegative2 <- subset(CleanData.RTNegCorr, RT < 0)
+
+#2B- Removing Participants with very large single RT values
+
+RTHigh <- subset(CleanData.RespCorr, RT>120000 )
+
+#Relevel this to get rid of factor levels that aren't there any longer
+RTHigh$ParticipantID <- factor(RTHigh$ParticipantID)
+
+RTHighs <- as.data.frame(table(RTHigh$ParticipantID))
+colnames(RTHighs) <- c("Participant", "Count")
+
+#re-order by count
+RTHighs <- RTHighs[order(-RTHighs$Count),]
+
+#Give shorter participantIDs
+RTHighs$Participant <- substring(RTHighs$Participant, 1,3)
+
+#Making the Participant Column into an Index
+RTHighs2 <- RTHighs[-1]
+row.names(RTHighs2) <- RTHighs$Participant
+
+#Transpose for output
+RTHighsT <- as.data.frame(t(RTHighs2))
+
+#Get the participantIDs for participants with too-long RT values
+
+participants <- unique(RTHigh$Participant)
+
+#Write a for loop that removes all the lines of the data frame for each of these participants
+CleanData.HighRTCorr <- CleanData.RTNegCorr
+
+for (participant in participants) {
+  
+  CleanData.HighRTCorr <- subset(CleanData.HighRTCorr, ParticipantID != participant)
+  
+}
+
+CleanData2 <- CleanData.HighRTCorr
+
+#Output this clean Data to acsv
+write.csv(CleanData2, file=("D:/WIN/Desktop/Data Test/CleanData.csv"))
+
+# RT Histograms
+
+ggplot(CleanData2, aes(RT)) +
+  geom_density() #+
+  #xlim(0, 40000)
+
+#Calculating the interquartile range
+
+lowerquart <- quantile(CleanData2$RT)[2]
+upperquart <- quantile(CleanData2$RT)[4]
+
+Interquartile <- upperquart - lowerquart
+
+#Calculating thresholds
+#Mild thresholds are 1.5* interquartile range
+mild.low <- lowerquart - (Interquartile * 1.5)
+mild.high <- upperquart + (Interquartile * 1.5)
+
+#Extremes are 3* interquartile range
+extreme.low <- lowerquart - (Interquartile * 3)
+extreme.high <- upperquart + (Interquartile * 3)
+
+
+#1- Removing all Outliers ()
+CleanData.RTTrim1 <- subset(CleanData2, RT > mild.low & RT < mild.high)
+
+ggplot(CleanData.RTTrim1, aes(RT)) +
+  geom_density() +
+  ggtitle("Density Plot of RTs- All Outliers Removed")
+
+#2- Replacing all Outliers with the Mean
+CleanData.RTTrim2 <- CleanData2
+
+#Compute non-outlier means
+NOMean1 <- mean(CleanData.RTTrim1$RT)
+
+CleanData.RTTrim2$RT <- ifelse(CleanData.RTTrim2$RT < mild.low,
+                               NOMean1,
+                               CleanData.RTTrim2$RT)
+
+CleanData.RTTrim2$RT <- ifelse(CleanData.RTTrim2$RT > mild.high,
+                               NOMean1,
+                               CleanData.RTTrim2$RT)
+
+
+ggplot(CleanData.RTTrim2, aes(RT)) +
+  geom_density() +
+  ggtitle("Density Plot of RTs- All Outliers Replaced with Mean")
+
+#3- Removing only extreme outliers
+
+CleanData.RTTrim3 <- subset(CleanData2, RT > extreme.low & RT < extreme.high)
+
+ggplot(CleanData.RTTrim3, aes(RT)) +
+  geom_density() +
+  ggtitle("Density Plot of RTs- Extreme Outliers Removed")
+
+#4- Setting outliers to the most extreme of the minimum outlier values
+
+CleanData.RTTrim4 <- CleanData2
+
+CleanData.RTTrim4$RT <- ifelse(CleanData.RTTrim4$RT < mild.low,
+                               mild.low,
+                               CleanData.RTTrim4$RT)
+
+CleanData.RTTrim4$RT <- ifelse(CleanData.RTTrim4$RT > mild.high,
+                               mild.high,
+                               CleanData.RTTrim4$RT)
+
+ggplot(CleanData.RTTrim4, aes(RT)) +
+  geom_density() +
+  ggtitle("Density Plot of RTs- Outliers Trimmed to Mild Outlier Boundary")
+
+#5- Replacing all outliers with the mean on a by-subject basis
+
+participantIDs <- unique(CleanData2$ParticipantID)
+
+participantdata <- list()
+CleanData.RTTrim5 <- list()
+
+for (participant in participantIDs) {
+  
+  participantdata <- subset(CleanData2, ParticipantID == participant)
+  
+  #Get Non-Outlier Mean
+  participantdataNO <- subset(participantdata, RT > mild.low & RT < mild.high)
+  NOMean2 <- mean(participantdataNO$RT)
+  
+  
+
+  participantdata$RT <- ifelse(participantdata$RT < mild.low,
+                               NOMean2,
+                               participantdata$RT)
+
+  participantdata$RT <- ifelse(participantdata$RT > mild.high,
+                                NOMean2,
+                               participantdata$RT)
+  
+
+  
+  CleanData.RTTrim5 <- rbind(CleanData.RTTrim5, participantdata)
+
+}
+
+
+ggplot(CleanData.RTTrim5, aes(RT)) +
+  geom_density() +
+  ggtitle("Density Plot of RTs- Outliers Replaced with Mean (By Subject)")
+
+CleanData3 <- CleanData.RTTrim5
+
+
+
+
+```
+
+# Data Exclusion - Approachers and Spammers
+
+```{r Data Exclusion - Approachers and Spammers, message = FALSE, warning = FALSE}
+
+#Adding a column for recoding
+CleanData2$holder <- paste(CleanData2$Location, CleanData2$RespKey, sep = "")
+
+#Score a column by whether participants chose to approach or retreat
+CleanData2$Approach <- mapvalues(CleanData2$holder,
+                                 from = c("Left39", "Down38", "Up40", "Right37", 
+                                          "Left37", "Down40", "Up38", "Right39"),
+                                 to = c(rep("Approach", 4), rep("Retreat",4)
+                                        )
+                                 )
+
+
+#First we will check for spammers - participants who vastly over-used any of the response keys
+
+CleanData2$RespKey <- factor(CleanData2$RespKey)
+KeyPresses <-
+ CleanData2 %>%
+ count(ParticipantID, RespKey, sort = FALSE)
+
+
+## Determining our extreme outliers for a principled data exclusion policy
+lowerquart2 <- quantile(KeyPresses$n)[2]
+upperquart2 <- quantile(KeyPresses$n)[4]
+
+Interquartile2 <- upperquart2 - lowerquart2
+
+#Extremes are 3* interquartile range
+extreme.low2 <- lowerquart2 - (Interquartile2 * 3)
+extreme.high2 <- upperquart2 + (Interquartile2 * 3)
+
+#Making a list of participants outside of the extreme range
+SpammerKillList <- subset(KeyPresses, n > 88)
+SpammerList <- unique(SpammerKillList$ParticipantID)
+
+#Removing spammers from the data
+CleanData5 <- CleanData2
+
+for (Spammer in SpammerList) {
+  
+CleanData5 <- subset(CleanData5, ParticipantID != Spammer)
+  
+}
+
+####################################################
+
+#Now we will check for non-learners/non-listeners - i.e. those who always chose to approach or retreat
+
+CleanData5$Approach <- factor(CleanData5$Approach)
+Approachers <-
+ CleanData5 %>%
+ count(ParticipantID, Approach, sort = FALSE)
+
+## Determining our extreme outliers for a principled data exclusion policy
+lowerquart3 <- quantile(Approachers$n)[2]
+upperquart3 <- quantile(Approachers$n)[4]
+
+Interquartile3 <- upperquart3 - lowerquart3
+
+#Extremes are 3* interquartile range
+extreme.low3 <- lowerquart3 - (Interquartile3 * 3)
+extreme.high3 <- upperquart3 + (Interquartile3 * 3)
+
+#Making a list of participants outside of the extreme range
+CowardsKillList <- subset(Approachers, n < 64)
+CowardList <- unique(CowardsKillList$ParticipantID)
+
+#Removing spammers from the data
+CleanData6 <- CleanData5
+
+for (Coward in CowardList) {
+  
+CleanData6 <- subset(CleanData6, ParticipantID != Coward)
+  
+}
+
+
+```
+
+We made the decision to exclude a number of participants we identified as "spammers" - those who drastically "preferred" pressing one of the arrow keys more than the others (note because of counterbalancing that a perfect experimental participant should use each response key equally). In the most flagrant case of this, one participant (ID = 'r KeyPresses$ParticipantID[[1]]` ) used the Left Arrow (Keypress 37) on 120 trials (every trial where it was a valid response), suggesting that they were simply pressing that key on all trials to advance through the experiment
+
+We calculated 3x the Interquartile range as our extreme outlier cutoff point and excluded any participants who pressed a single response key 88 or more times
+
+We take the same stance on Bravos/Cowards - those who either approach or retreat from Aliens at an extreme rate (again they should approach/retreat equally often)
+
+# Data Exclusion - Response Times
+
+So far we've been taking the approach of just trying to get our RT exclusion closer to normal, but we didn't really consider dropping any trials based on their RT values
+
+I think after some further consideration we should consider doing so - see below
+
+```{r Data Exclusion - Response Times}
+
+#Above we looked only at the extremeness of Response TImes, but didn't consider the quality of the data from long trials. We certainly don't want to wholesale exclude data from entire participants for long trials, but it seems likely that in our extreme outliers we have individual trials where participants were likely to have been distracted by something else (I cannot imagine someone taking 15 seconds to truly consider a trial in this experiment)
+
+#A first Look
+
+extremeRTsHigh <- subset(CleanData6, RT > extreme.high) #Take only extremely slow trials
+extremeRTsLow <- subset(CleanData6, RT < extreme.low) #Take only extremely fast trials (note that there actually aren't any extreme low RT trials)
+normalTrials <- subset(CleanData6, RT < extreme.high) #Take only normal trials
+
+highRTmeans <- data.frame(tapply(extremeRTsHigh$RespCorr, extremeRTsHigh$Condition, mean))
+RTmeans <- data.frame(tapply(normalTrials$RespCorr, normalTrials$Condition, mean))
+
+RTComparison <- cbind(highRTmeans, RTmeans)
+RTComparison <- RTComparison[-1,] #remove a useless first row
+
+RTComparison$Condition <- c(1, 10, 2, "3A", "3B", 4, 5, "6A", "6B", 7, 8, 9)
+colnames(RTComparison) <- c("High RT Outliers", "Normal Trials", "Condition")
+
+RTComparison <- subset(RTComparison, select = c("Condition", "Normal Trials", "High RT Outliers"))
+
+RTComparison$Difference <- RTComparison$`Normal Trials` - RTComparison$`High RT Outliers`
+
+RTComparison %>% 
+      mutate_if(is.numeric, round, digits = 3) %>% 
+            knitr::kable(caption = "Comparison of Proportion Correct on Normal Trials vs Extreme Outlier Trials (RT)", ) %>%
+              kable_styling(full_width= F)
+
+
+
+```
+
+We can see in the above table that the differences in Proportion correct can be pretty substantial on very slow trials - up to 27% lower than on non-extreme trials, so we're going to simply remove these trials from the data entirely, rather than modifying the RT values for these trials to make our distribution for RT more normal
+
+However the fairest way to do this is to actually calculate extreme values on a by trial-type basis and then exclude them, which we do below
+
+```{r Data Exclusion - Response Times II}
+
+#Training Trials
+CleanData6.Training <- subset(CleanData6, TrialType == "Training")
+
+CleanData6.Training.lowerquart <- quantile(CleanData6.Training$RT)[2]
+CleanData6.Training.upperquart <- quantile(CleanData6.Training$RT)[4]
+
+CleanData6.Training.Interquartile <- CleanData6.Training.upperquart - CleanData6.Training.lowerquart
+
+CleanData6.Training.extreme.high <- CleanData6.Training.upperquart + (CleanData6.Training.Interquartile * 3)
+
+CleanData6.Training.CutTrials <- subset(CleanData6.Training, RT > CleanData6.Training.extreme.high )
+CleanData6.Training.CutTrials.ParticipantCounts <- count(CleanData6.Training.CutTrials, ParticipantID, sort = TRUE)
+
+CleanData6.Training.UnCutTrials <- subset(CleanData6.Training, RT < CleanData6.Training.extreme.high )
+ 
+
+#Testing Trials
+
+CleanData6.Testing <- subset(CleanData6, TrialType == "Testing")
+
+CleanData6.Testing.lowerquart <- quantile(CleanData6.Testing$RT)[2]
+CleanData6.Testing.upperquart <- quantile(CleanData6.Testing$RT)[4]
+
+CleanData6.Testing.Interquartile <- CleanData6.Testing.upperquart - CleanData6.Testing.lowerquart
+
+CleanData6.Testing.extreme.high <- CleanData6.Testing.upperquart + (CleanData6.Testing.Interquartile * 3)
+
+CleanData6.Testing.CutTrials <- subset(CleanData6.Testing, RT > CleanData6.Testing.extreme.high )
+CleanData6.Testing.CutTrials.ParticipantCounts <- count(CleanData6.Testing.CutTrials, ParticipantID, sort = TRUE)
+
+CleanData6.Testing.UnCutTrials <- subset(CleanData6.Testing, RT < CleanData6.Testing.extreme.high )
+
+
+#Rebinding the Two Together
+CleanData.RTTrimmed <- rbind(CleanData6.Training.UnCutTrials, CleanData6.Testing.UnCutTrials )
+
+#Distribution of RTs after trimming extreme highs off
+ggplot(CleanData.RTTrimmed, aes(RT)) +
+  geom_density() +
+  ggtitle("Density Plot of RTs- Extreme Outliers Removed")
+```
+
+```{r Data Cleaning - Adding Final Columns}
+
+#Splitting Testing Trials
+participantIDs <- unique(CleanData.RTTrimmed$ParticipantID)
+participantdata <- list()
+participantdata.training <- list()
+participantdata.testing <- list()
+
+testingtrials <- list()
+trainingtrials <- list()
+
+
+for (participant in participantIDs) {
+  
+  participantdata <- subset(CleanData3, ParticipantID == participant)
+  participantdata.training <- subset(participantdata, TrialType == "Training")
+  participantdata.testing <- subset(participantdata, TrialType == "Testing")
+  
+  
+  TrainingFigures <- unique(participantdata.training$Image)
+  
+  participantdata.training$Generalisation <- NA
+  
+  participantdata.testing$Generalisation <- ifelse(
+    participantdata.testing$Image %in% TrainingFigures,
+    "Old",
+    "New")
+  
+  trainingtrials <- rbind(trainingtrials, participantdata.training)
+  testingtrials <- rbind(testingtrials, participantdata.testing)
+  
+  
+}
+
+CleanData4 <- rbind(trainingtrials, testingtrials)
+
+
+#Factor levels, adding Trial Type 2
+
+CleanData4$TrialType <- factor(CleanData4$TrialType, level = c ("Training", "Testing"))
+CleanData4$TrialType2 <- paste(CleanData4$TrialType, CleanData4$Generalisation, sep = "-")
+CleanData4$Generalisation <- as.factor(CleanData4$Generalisation)
+
+CleanData4$TrialType2 <- factor(CleanData4$TrialType2, level = c ("Training-NA", "Testing-Old", "Testing-New"),
+                                     labels = c("Training", "Testing-Old", "Testing-New"))
+
+
+# Obtaining the curviness of images from our original script
+
+CleanData4$Image <- sub("Stims/Figures/", "", CleanData4$Image)
+CleanData4$Image <- sub(".bmp", "", CleanData4$Image)
+
+CleanData.Final <- separate(CleanData4, col=Image, into = c("ImageSeed", "JaggedvsCurved", "Curviness", "Set"), sep = "-")
+
+write.csv(CleanData.Final, file=("D:/WIN/Desktop/Data Test/CleanDataFinal.csv"))
+
+
+```
