@@ -127,7 +127,7 @@ center_scale <- function(x) {
 
 #Read in the clean data. This data has had a number of exclusions done on it based on response time and patterns (see the appendices)
 
-CleanData <- read.csv("C:/Users/775/Documents/GitHub/Stekic-et-al/Data/CleanDataFinal.csv")
+CleanData <- read.csv("D:/WIN/Documents/GitHub/Stekic-et-al/Data/CleanDataFinal.csv")
 
 # Change the order of the Trial Type factor - collapse old and new items
 CleanData$TrialType <- factor(CleanData$TrialType, levels = c("Training", "Testing"))
@@ -266,8 +266,7 @@ Exp1Data.Interaction <-
   
   
   
-#Bind into a Single DataFrame, output as a Kable, and Save
-setwd("C:/Users/775/Documents/GitHub/Stekic-et-al/Figures/Tables")
+#Bind into a Single DataFrame, output as a Kable
 
 Exp1Descriptives <-
   rbind.data.frame(Exp1Data.Condition, Exp1Data.TrialType, Exp1Data.Interaction) %>%
@@ -299,7 +298,6 @@ afex.Exp1 <- mixed(RespCorr ~ Condition2 * TrialType + (1 + Condition2|Participa
 
 
 #Pretty up results and kick out as kable
-setwd("C:/Users/775/Documents/GitHub/Stekic-et-al/Figures/Tables")
 
 Exp1Anova <- 
   afex.Exp1$anova_table %>% 
@@ -384,8 +382,7 @@ Exp1Data.Interaction.RT <-
   
   
   
-#Bind into a Single DataFrame, output as a Kable, and Save
-setwd("C:/Users/Alan Nielsen/Documents/GitHub/Stekic-et-al/Figures/Tables")
+#Bind into a Single DataFrame, output as a Kable
 
 Exp1Descriptives.RT <-
   rbind.data.frame(Exp1Data.Condition.RT, Exp1Data.TrialType.RT, Exp1Data.Interaction.RT) %>%
@@ -574,17 +571,13 @@ Exp1.Trend$contrasts %>%
             knitr::kable(caption = "Experiment 1 - Comparison of Estimated Marginal Trends", ) %>%
               kable_styling(full_width= F)
 
-
-
 ```
-
-
 
 
 
 ```{r Experiment 1 - Lupyan Replication - Reading in Gary's Data}
 
-Lupyan2007 <- read.csv("C:/Users/Alan Nielsen/Documents/GitHub/Stekic-et-al/RScripts/Lupyan2007Data.csv")
+Lupyan2007 <- read.csv("D:/WIN/Documents/GitHub/Stekic-et-al/RScripts/Lupyan2007Data.csv")
 #adding columns we need (filled with NAs) to Gary's data (so the frames can be bound)
 Lupyan2007$N <- NA
 Lupyan2007$sd <- NA
@@ -821,6 +814,7 @@ Exp2Anova
 save_kable(Exp2Anova, "Experiment 2- Learning Performance - ANOVA Results.png")
 
 ```
+
 #### Mixed Model Post Hoc Comparisons with EM Means - Condition
 ```{r Experiment 2 -  EM Means}
 
@@ -1419,7 +1413,6 @@ save_kable(Exp3Descriptives, "Experiment 3- Descriptive Statistics.png")
 
 ### Mixed Models 
 ```{r Experiment 3 - Mixed Models, warning = FALSE}
-setwd("C:/Users/Alan Nielsen/Documents/GitHub/Stekic-et-al/Figures/Tables")
 
 afex.Exp3 <- mixed(RespCorr ~ Condition2 * TrialType + (1 + Condition2|ParticipantID),
                          data=Exp3Data,
@@ -1930,7 +1923,7 @@ emmip(afex.Exp3.Block, Condition2 ~ BlockC, cov.reduce = range)
 
 ##OMNIBUS ANALYSIS
 
-For the final part of the study we bring everything from the above together only graphically to show for an omnibus difference between item and category conditions in aspect of no label and arbitrary conditions.
+For the final part of the study we bring everything from the above together only graphically to show for an omnibus difference between item and category conditions in regard to the no label and arbitrary conditions.
 
 In this, we're going to look only at Training trials (because testing trials haven't told us anything interesting so far)
 
@@ -1970,7 +1963,7 @@ Exp4Data$Iconicity <- factor(Exp4Data$Iconicity, levels = c("No Label", "Iconic"
 
 ### Plotted Data
 
-```{r Experiment 4 - Omnibus Plot}
+```{r Omnibus Plot}
 
 #Aggregate our data for plotting
 Exp4Data$Collapse <- paste(Exp4Data$LabelType, Exp4Data$Systematicity, Exp4Data$Iconicity, sep = ":")
@@ -2022,10 +2015,10 @@ ggplot(data=Exp4Agg, aes(x=Block, y=RespCorr, group= Collapse)) +
 
 So maybe that doesn't show us anything super exciting - or rather its hard to read. Because we don't actually plot Label Type Here.
 
-But we know from our omnibus analysis that level of Iconicity makes no difference (and of course we saw that in all other analyses), so lets get rid of iconicity and instead plot Label Type vs Systematicity
+But we know from our omnibus analysis that level of Iconicity makes no difference (and of course we saw that in all other analyses), so lets plot Label Type vs Systematicity instead. 
 
 
-```{r Experiment 4 - Label Type x Systematicity Plot}
+```{r Omnibus - Label Type x Systematicity Plot}
 
 Exp4Data$Collapse2 <- paste(Exp4Data$LabelType, Exp4Data$Systematicity, sep = ":")
 Exp4Data$Collapse2 <- factor(Exp4Data$Collapse2, 
