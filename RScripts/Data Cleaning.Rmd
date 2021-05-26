@@ -6,8 +6,8 @@ output: html_document
 ---
 #### Loading Libaries
 ```{r Loading Libraries, include = FALSE}
+library(dplyr)
 library(lme4)
-library(plyr)
 library(ggplot2)
 library(afex)
 library(emmeans)
@@ -350,7 +350,7 @@ CleanData2$Approach <- mapvalues(CleanData2$holder,
 CleanData2$RespKey <- factor(CleanData2$RespKey)
 KeyPresses <-
  CleanData2 %>%
- count(ParticipantID, RespKey, sort = FALSE)
+ dplyr::count(ParticipantID, RespKey, sort = FALSE)
 
 
 ## Determining our extreme outliers for a principled data exclusion policy
@@ -383,7 +383,7 @@ CleanData5 <- subset(CleanData5, ParticipantID != Spammer)
 CleanData5$Approach <- factor(CleanData5$Approach)
 Approachers <-
  CleanData5 %>%
- count(ParticipantID, Approach, sort = FALSE)
+ dplyr::count(ParticipantID, Approach, sort = FALSE)
 
 ## Determining our extreme outliers for a principled data exclusion policy
 lowerquart3 <- quantile(Approachers$n)[2]
@@ -420,8 +420,6 @@ We take the same stance on Bravos/Cowards - those who either approach or retreat
 # Data Exclusion - Response Times
 
 So far we've been taking the approach of just trying to get our RT exclusion closer to normal, but we didn't really consider dropping any trials based on their RT values
-
-I think after some further consideration we should consider doing so - see below
 
 ```{r Data Exclusion - Response Times}
 
@@ -472,7 +470,7 @@ CleanData6.Training.Interquartile <- CleanData6.Training.upperquart - CleanData6
 CleanData6.Training.extreme.high <- CleanData6.Training.upperquart + (CleanData6.Training.Interquartile * 3)
 
 CleanData6.Training.CutTrials <- subset(CleanData6.Training, RT > CleanData6.Training.extreme.high )
-CleanData6.Training.CutTrials.ParticipantCounts <- count(CleanData6.Training.CutTrials, ParticipantID, sort = TRUE)
+CleanData6.Training.CutTrials.ParticipantCounts <- dplyr::count(CleanData6.Training.CutTrials, ParticipantID, sort = TRUE)
 
 CleanData6.Training.UnCutTrials <- subset(CleanData6.Training, RT < CleanData6.Training.extreme.high )
  
@@ -489,7 +487,7 @@ CleanData6.Testing.Interquartile <- CleanData6.Testing.upperquart - CleanData6.T
 CleanData6.Testing.extreme.high <- CleanData6.Testing.upperquart + (CleanData6.Testing.Interquartile * 3)
 
 CleanData6.Testing.CutTrials <- subset(CleanData6.Testing, RT > CleanData6.Testing.extreme.high )
-CleanData6.Testing.CutTrials.ParticipantCounts <- count(CleanData6.Testing.CutTrials, ParticipantID, sort = TRUE)
+CleanData6.Testing.CutTrials.ParticipantCounts <- dplyr::count(CleanData6.Testing.CutTrials, ParticipantID, sort = TRUE)
 
 CleanData6.Testing.UnCutTrials <- subset(CleanData6.Testing, RT < CleanData6.Testing.extreme.high )
 
